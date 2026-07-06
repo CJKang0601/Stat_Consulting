@@ -1,0 +1,182 @@
+---
+title: "HW1"
+subtitle: "Summary the titanic datase"
+date: 2025/02/28
+author: Cheng-Jun Kang 
+format:
+ html:
+    include-in-header:
+      - text: |
+#         \usepackage{setspace,relsize}
+ #        \usepackage{geometry}
+#         \geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+#mainfont: "Microsoft JhengHei UI"
+#mainfont: "Microsoft JhengHei"
+mainfont: "Microsoft JhengHei Bold"
+toc: true
+lang: zh-Tw
+documentclass: article
+pdf-engine: xelatex
+execute:
+  tidy: true
+  echo: true
+  warning: false
+  message: false
+---
+
+## 一、讀取資料與基本統計資料分析
+
+```{r}
+#| results: asis
+# R Interface to Python
+library(reticulate)
+library(Hmisc)
+# 讀取泰坦尼克號資料集
+titanic <- read.csv("C:\\Users\\User\\Desktop\\成大\\1132課程\\統計諮詢\\titanic.csv")
+summary(titanic)
+# 顯示基本統計量
+#latex(describe(titanic), file="")
+```
+
+## 二、乘客人口統計分析
+```{r}
+library(tidyverse)
+# 載入視覺化套件
+library(ggplot2)
+
+# 性別和艙等分佈圖
+titanic %>%
+  group_by(Pclass, Sex) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  ggplot(aes(x = factor(Pclass, labels = c("一等艙", "二等艙", "三等艙")), 
+             y = count, fill = Sex)) +
+  geom_bar(stat = "identity", position = "stack") +
+  geom_text(aes(label = count), 
+            position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = c("pink", "lightblue"),
+                   labels = c("女性", "男性"),
+                   name = "性別") +
+  labs(title = "泰坦尼克號乘客的艙等與性別分佈",
+       x = "艙等",
+       y = "人數") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# 年齡分佈直方圖
+titanic %>%
+  ggplot(aes(x = Age)) +
+  geom_histogram(bins = 20, fill = "skyblue", color = "black") +
+  labs(title = "泰坦尼克號乘客年齡分佈",
+       x = "年齡",
+       y = "人數") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# 出發港口的分佈
+titanic %>%
+  filter(!is.na(Embarked)) %>%
+  mutate(Embarked = factor(Embarked, 
+                           levels = c("C", "Q", "S"),
+                           labels = c("法國瑟堡", "愛爾蘭昆士敦", "英國南安普頓"))) %>%
+  ggplot(aes(x = Embarked, fill = Embarked)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5) +
+  labs(title = "乘客登船港口分佈",
+       x = "登船港口",
+       y = "人數") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "none")
+```
+
+## 三、乘客存活率分析
+```{r}
+# 按性別的存活率
+titanic %>%
+  group_by(Sex) %>%
+  summarise(
+    total = n(),
+    survived = sum(Survived),
+    survival_rate = mean(Survived) * 100
+  ) %>%
+  mutate(Sex = factor(Sex, levels = c("female", "male"), labels = c("女性", "男性"))) %>%
+  ggplot(aes(x = Sex, y = survival_rate, fill = Sex)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.1f%%", survival_rate)), vjust = -0.5) +
+  scale_fill_manual(values = c("#FFC0CB", "#ADD8E6")) +
+  labs(title = "按性別的存活率",
+       x = "性別",
+       y = "存活率 (%)") +
+  ylim(0, 100) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "none")
+
+# 按艙等的存活率
+titanic %>%
+  group_by(Pclass) %>%
+  summarise(
+    total = n(),
+    survived = sum(Survived),
+    survival_rate = mean(Survived) * 100
+  ) %>%
+  mutate(Pclass = factor(Pclass, levels = c(1, 2, 3), 
+                        labels = c("一等艙", "二等艙", "三等艙"))) %>%
+  ggplot(aes(x = Pclass, y = survival_rate, fill = Pclass)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.1f%%", survival_rate)), vjust = -0.5) +
+  scale_fill_manual(values = c("#FFD700", "#C0C0C0", "#A52A2A")) +
+  labs(title = "按艙等的存活率",
+       x = "艙等",
+       y = "存活率 (%)") +
+  ylim(0, 100) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "none")
+
+# 建立年齡分組
+titanic %>%
+  mutate(Age_Group = cut(Age, 
+                         breaks = c(0, 12, 18, 35, 60, 100),
+                         labels = c("兒童", "青少年", "青年", "中年", "老年"),
+                         right = FALSE))
+
+# 按年齡組和性別的存活率
+titanic %>%
+  mutate(Age_Group = cut(Age, 
+                         breaks = c(0, 12, 18, 35, 60, 100),
+                         labels = c("兒童", "青少年", "青年", "中年", "老年"),
+                         right = FALSE)) %>%
+  filter(!is.na(Age_Group)) %>%
+  group_by(Age_Group, Sex) %>%
+  summarise(
+    total = n(),
+    survived = sum(Survived),
+    survival_rate = mean(Survived) * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(Sex = factor(Sex, levels = c("female", "male"), labels = c("女性", "男性"))) %>%
+  ggplot(aes(x = Age_Group, y = survival_rate, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = sprintf("%.1f%%", survival_rate)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5) +
+  scale_fill_manual(values = c("pink", "lightblue")) +
+  labs(title = "按年齡組和性別的存活率",
+       x = "年齡組",
+       y = "存活率 (%)") +
+  ylim(0, 100) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# 票價與存活關係
+titanic %>%
+  filter(!is.na(Fare)) %>%
+  ggplot(aes(x = factor(Survived, labels = c("未存活", "存活")), y = Fare)) +
+  geom_boxplot(fill = c("#FA8072", "#90EE90")) +
+  labs(title = "票價與存活關係",
+       x = "存活狀態",
+       y = "票價 (英鎊)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```

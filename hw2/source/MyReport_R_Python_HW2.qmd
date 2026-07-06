@@ -1,0 +1,128 @@
+---
+title: "HW2"
+subtitle: "Summary the Mushroom dataset"
+date: 2025/03/19
+author: Cheng-Jun Kang 
+format:
+ html:
+    include-in-header:
+      - text: |
+#         \usepackage{setspace,relsize}
+ #        \usepackage{geometry}
+#         \geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+#mainfont: "Microsoft JhengHei UI"
+#mainfont: "Microsoft JhengHei"
+mainfont: "Microsoft JhengHei Bold"
+toc: true
+lang: zh-Tw
+documentclass: article
+pdf-engine: xelatex
+execute:
+  tidy: true
+  echo: true
+  warning: false
+  message: false
+---
+
+## 一、讀取資料與基本統計資料分析
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(reticulate)
+library(Hmisc)
+library(dplyr)
+# 讀取蘑菇數據集
+mushroom <- read.csv('C:\\Users\\cjkan\\OneDrive\\Desktop\\CJK\\113_2\\SC\\mushroom\\primary_data.csv', sep=";")
+
+#colnames(mushroom)
+#names(mushroom)
+# 顯示數據集的基本結構
+str(mushroom)
+# 根据实际列名调整代码，假设正确的列名是"cap-diameter"、"cap-shape"等
+mushroom_analysis <- mushroom %>%
+  mutate(cap.shape = gsub("\\[|\\]", "", cap.shape),
+         cap.shape = strsplit(cap.shape, ", ")) %>%
+  unnest(cap.shape) %>%
+  group_by(cap.shape, class) %>%
+  summarise(count = n(), .groups = 'drop')
+
+dim(mushroom)
+head(mushroom)
+# 顯示基本統計量
+summary(mushroom)
+describe(mushroom)
+```
+```{r}
+# 選擇主要分析變數
+selected_vars <- c(
+  "family",           # 蘑菇科屬（多項式）
+  "class",            # 食用性：p=有毒, e=可食用（二元）
+  "cap.shape",        # 帽蓋形狀：b=鐘形, c=圓錐形, x=凸形, f=平坦, s=凹陷, p=球形, o=其他
+  "cap.color",        # 帽蓋顏色：n=棕色, w=白色, y=黃色等
+  "does.bruise.or.bleed", # 是否瘀傷/流血：t=是, f=否
+  "habitat",          # 生長環境：g=草地, l=樹葉, m=草甸, d=樹林等
+  "season"            # 生長季節：s=春季, u=夏季, a=秋季, w=冬季
+)
+
+# 檢查選擇的變數是否都存在於資料集中
+all(selected_vars %in% colnames(mushroom))
+
+# 查看每個選定變數的基本資訊
+sapply(mushroom[selected_vars], function(x) length(unique(x)))
+ 
+
+
+```
+
+## 二、蘑菇數據集統計分析
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+# 計算食用性分佈
+edibility_count <- mushroom %>%
+  group_by(class) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100,
+         class = factor(class, levels = c("e", "p"),
+                       labels = c("可食用", "有毒")))
+
+# 繪製食用性分佈圖
+ggplot(edibility_count, aes(x = class, y = count, fill = class)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%d (%.1f%%)", count, percentage)), 
+            position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = c("#90EE90", "#FA8072"),
+                   name = "食用性") +
+  labs(title = "蘑菇食用性分佈",
+       x = "食用性",
+       y = "數量") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# 分析蘑菇科屬分佈
+family_distribution <- mushroom %>%
+  group_by(family) %>%
+  summarise(count = n(),
+            poisonous = sum(class == "p"),
+            edible = sum(class == "e"),
+            poisonous_rate = poisonous / count * 100) %>%
+  arrange(desc(count))
+
+# 繪製主要蘑菇科屬分佈圖（取前10個科屬）
+top_families <- family_distribution %>%
+  top_n(10, count)
+
+ggplot(top_families, aes(x = reorder(family, count), y = count, fill = poisonous_rate)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = count), hjust = -0.2) +
+  scale_fill_gradient(low = "#90EE90", high = "#FA8072", name = "有毒率 (%)") +
+  labs(title = "主要蘑菇科屬分佈",
+       x = "科屬",
+       y = "數量") +
+  coord_flip() +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
